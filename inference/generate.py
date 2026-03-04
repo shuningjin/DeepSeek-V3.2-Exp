@@ -5,6 +5,7 @@ from typing import List
 
 import torch
 import torch.distributed as dist
+from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import AutoTokenizer
 from safetensors.torch import load_model
 
@@ -77,7 +78,7 @@ def generate(
         completion_tokens.append(toks)
     return completion_tokens
 
-
+@record
 def main(
     ckpt_path: str,
     config: str,
@@ -146,8 +147,11 @@ def main(
     else:
         with open(input_file) as f:
             prompts = f.read().split("\n\n")
+        print(prompts)
         assert len(prompts) <= args.max_batch_size, f"Number of prompts exceeds maximum batch size ({args.max_batch_size})"
-        prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True) for prompt in prompts]
+        #prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True) for prompt in prompts]
+        prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True)["input_ids"] for prompt in prompts]
+        print(prompt_tokens)
         completion_tokens = generate(model, prompt_tokens, max_new_tokens, tokenizer.eos_token_id, temperature)
         completions = tokenizer.batch_decode(completion_tokens, skip_special_tokens=True)
         for prompt, completion in zip(prompts, completions):

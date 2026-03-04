@@ -9,7 +9,8 @@ tilelang.set_log_level("WARNING")
 pass_configs = {
     tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
     tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
-    tilelang.PassConfigKey.TL_DISABLE_FAST_MATH: True,
+    # tilelang.PassConfigKey.TL_DISABLE_FAST_MATH: True,
+    tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: False,
 }
 
 FP8 = "float8_e4m3"
@@ -271,4 +272,13 @@ def fp8_index(
         fp32 logits -> fp32 logits_sum
         fp32 logits_sum * k_s (e8m0) -> fp32 index_score
     """
+    # Squeeze the trailing dummy dimensions from the scale tensors
+    q_s = q_s.squeeze(-1)
+    k_s = k_s.squeeze(-1)
+    # Hack to force strict C-contiguous strides (bypasses PyTorch bsz=1 optimization)
+    q = q.reshape(-1).view(q.shape)
+    q_s = q_s.reshape(-1).view(q_s.shape)
+    k = k.reshape(-1).view(k.shape)
+    k_s = k_s.reshape(-1).view(k_s.shape)
+    
     return fp8_index_kernel(q.shape[2], q.shape[3])(q, q_s, k, k_s)

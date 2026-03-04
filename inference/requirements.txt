@@ -1,5 +1,6 @@
 torch
 transformers
 safetensors
-fast_hadamard_transform
-tilelang==0.1.6
+#fast_hadamard_transform
+#tilelang==0.1.6
+tilelang==0.1.8
