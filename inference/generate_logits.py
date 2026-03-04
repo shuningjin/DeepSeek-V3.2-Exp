@@ -85,7 +85,7 @@ def main(
         input_ids = tokenizer.encode(prompt_text, return_tensors="pt")
         inputs = {"input_ids": input_ids}
         with torch.inference_mode():
-          outputs = model.forward(input_ids.to("cuda"), start_pos=0)
+          outputs = model.forward(input_ids.to("cuda"), start_pos=0, return_all_logits=True)
         
         # Convert to float32 to maintain precision, move to CPU, convert to numpy
         logits = outputs.cpu().to(torch.float32).numpy()

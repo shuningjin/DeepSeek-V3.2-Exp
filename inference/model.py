@@ -887,7 +887,7 @@ class Transformer(nn.Module):
         self.register_buffer("freqs_cis", precompute_freqs_cis(args), persistent=False)
 
     @torch.inference_mode()
-    def forward(self, tokens: torch.Tensor, start_pos: int = 0):
+    def forward(self, tokens: torch.Tensor, start_pos: int = 0, return_all_logits: bool = False):
         """
         Forward pass for the Transformer model.
 
@@ -905,7 +905,10 @@ class Transformer(nn.Module):
         for layer in self.layers:
             h, residual = layer(h, residual, start_pos, freqs_cis, mask)
         h, _ = self.norm(h, residual)
-        logits = self.head(h[:, -1].float())
+        if return_all_logits:
+          logits = self.head(h.float())
+        else:
+          logits = self.head(h[:, -1].float())
         if world_size > 1:
             all_logits = [torch.empty_like(logits) for _ in range(world_size)]
             dist.all_gather(all_logits, logits)
