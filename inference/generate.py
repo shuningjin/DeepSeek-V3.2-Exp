@@ -150,7 +150,13 @@ def main(
         print(prompts)
         assert len(prompts) <= args.max_batch_size, f"Number of prompts exceeds maximum batch size ({args.max_batch_size})"
         #prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True) for prompt in prompts]
-        prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True)["input_ids"] for prompt in prompts]
+        if hasattr(tokenizer, "chat_template"):
+          print("apply chat template")
+          prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True)["input_ids"] for prompt in prompts]
+        else:
+          print("not apply chat template")
+          # Fallback for base models: just encode the raw text with special tokens (like BOS)
+          tokens = tokenizer.encode(prompt, add_special_tokens=True)          
         print(prompt_tokens)
         completion_tokens = generate(model, prompt_tokens, max_new_tokens, tokenizer.eos_token_id, temperature)
         completions = tokenizer.batch_decode(completion_tokens, skip_special_tokens=True)
