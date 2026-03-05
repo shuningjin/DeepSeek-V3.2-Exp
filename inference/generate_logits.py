@@ -135,7 +135,8 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt-path", type=str, required=True, help="Path containing tokenizer and sharded safetensors")
     parser.add_argument("--config", type=str, required=True, help="Path to config.json")
     parser.add_argument("--output-path", type=str, required=True, help="File to save outputs to (e.g., logits.jsonl)")
-    parser.add_argument("--prompts", type=str, required=True, help="Semicolon separated string of prompts")
+    parser.add_argument("--prompts", type=str, required=False, default="", help="Semicolon separated string of prompts")
+    parser.add_argument("--prompt-path", type=str, required=False, default="", help="read prompt from file")
     parser.add_argument("--output-format", type=str, choices=["json", "pickle"], default="json", help="Format to save logits")
     parser.add_argument(
         "--gcs-bucket", type=str, required=False, default=None, help="A GCS bucket to store logits, without gs://."
@@ -143,8 +144,15 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    # Split the semicolon-separated string into a list of prompts
-    prompt_list = [p.strip() for p in args.prompts.split(";") if p.strip()]
+    if args.prompts:
+      # Split the semicolon-separated string into a list of prompts
+      prompt_list = [p.strip() for p in args.prompts.split(";") if p.strip()]
+    elif args.prompt_path:
+      with open(args.prompt_path, "r") as f:
+        prompt = f.read()
+        prompt_list = [prompt]
+    else:
+      raise ValueError("no prompt")
     
     main(
         ckpt_path=args.ckpt_path,
