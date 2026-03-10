@@ -1,5 +1,6 @@
 torch
-transformers
+#transformers
+transformers==4.57.3
 safetensors
 #fast_hadamard_transform
 #tilelang==0.1.6

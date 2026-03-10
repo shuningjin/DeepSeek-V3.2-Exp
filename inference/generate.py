@@ -75,6 +75,7 @@ def generate(
         toks = toks[prompt_lens[i]:prompt_lens[i]+max_new_tokens]
         if eos_id in toks:
             toks = toks[:toks.index(eos_id)]
+        print(f"prompt length: {prompt_lens[i]}, completion length: {len(toks)}, total length: {prompt_lens[i]+len(toks)}")
         completion_tokens.append(toks)
     return completion_tokens
 
@@ -86,6 +87,7 @@ def main(
     interactive: bool = True,
     max_new_tokens: int = 100,
     temperature: float = 1.0,
+    use_chat_template: bool = True,
 ) -> None:
     """
     Main function to load the model and perform interactive or batch text generation.
@@ -150,13 +152,15 @@ def main(
         print(prompts)
         assert len(prompts) <= args.max_batch_size, f"Number of prompts exceeds maximum batch size ({args.max_batch_size})"
         #prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True) for prompt in prompts]
-        if hasattr(tokenizer, "chat_template"):
+        if use_chat_template:
+          if not getattr(tokenizer, "chat_template", None):
+            raise ValueError("Tokenizer does not have chat template. Set `--use-chat-template=False`.")
           print("apply chat template")
-          prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True)["input_ids"] for prompt in prompts]
+          prompt_tokens = [tokenizer.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True) for prompt in prompts]
         else:
           print("not apply chat template")
           # Fallback for base models: just encode the raw text with special tokens (like BOS)
-          tokens = tokenizer.encode(prompt, add_special_tokens=True)          
+          prompt_tokens = [tokenizer.encode(prompt, add_special_tokens=True) for prompt in prompts]
         print(prompt_tokens)
         completion_tokens = generate(model, prompt_tokens, max_new_tokens, tokenizer.eos_token_id, temperature)
         completions = tokenizer.batch_decode(completion_tokens, skip_special_tokens=True)
@@ -167,6 +171,18 @@ def main(
 
     if world_size > 1:
         dist.destroy_process_group()
+
+
+def str2bool(v):
+  """Parses a string representation of a boolean value into a Python boolean."""
+  if isinstance(v, bool):
+    return v
+  if v.lower() in ("true"):
+    return True
+  elif v.lower() in ("false"):
+    return False
+  else:
+    raise argparse.ArgumentTypeError("Boolean value expected (e.g., True or False).")
 
 
 if __name__ == "__main__":
@@ -191,6 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--interactive", action="store_true")
     parser.add_argument("--max-new-tokens", type=int, default=200)
     parser.add_argument("--temperature", type=float, default=0.6)
+    parser.add_argument("--use-chat-template", type=str2bool, default=True)
     args = parser.parse_args()
     assert args.input_file or args.interactive, "Either input-file or interactive mode must be specified"
-    main(args.ckpt_path, args.config, args.input_file, args.interactive, args.max_new_tokens, args.temperature)
+    main(args.ckpt_path, args.config, args.input_file, args.interactive, args.max_new_tokens, args.temperature, args.use_chat_template)
