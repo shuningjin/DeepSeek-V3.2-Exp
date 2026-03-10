@@ -54,6 +54,7 @@ def main(
     output_path: str,
     gcs_bucket: str,
     output_format: str = "json",
+    force_add_bos: bool = False,
 ) -> None:
     world_size = int(os.getenv("WORLD_SIZE", "1"))
     rank = int(os.getenv("RANK", "0"))
@@ -83,6 +84,10 @@ def main(
         data_to_save = {"prompt": prompt_text}
         print(f"Processing prompt: {prompt_text}")
         input_ids = tokenizer.encode(prompt_text, return_tensors="pt")
+        if force_add_bos:
+          print("concat BOS id")
+          bos_ids = torch.tensor([[tokenizer.bos_token_id]], dtype=input_ids.dtype)
+          input_ids = torch.cat([bos_ids, input_ids], dim=-1)
         inputs = {"input_ids": input_ids}
         with torch.inference_mode():
           outputs = model.forward(input_ids.to("cuda"), start_pos=0, return_all_logits=True)
@@ -130,6 +135,18 @@ def main(
         dist.destroy_process_group()
 
 
+def str2bool(v):
+  """Parses a string representation of a boolean value into a Python boolean."""
+  if isinstance(v, bool):
+    return v
+  if v.lower() in ("true"):
+    return True
+  elif v.lower() in ("false"):
+    return False
+  else:
+    raise argparse.ArgumentTypeError("Boolean value expected (e.g., True or False).")
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(description="Extract Golden Logits using Native DeepSeek Checkpoints")
     parser.add_argument("--ckpt-path", type=str, required=True, help="Path containing tokenizer and sharded safetensors")
@@ -141,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--gcs-bucket", type=str, required=False, default=None, help="A GCS bucket to store logits, without gs://."
     )
+    parser.add_argument("--force-add-bos", type=str2bool, default=False)
 
     args = parser.parse_args()
     
@@ -161,4 +179,5 @@ if __name__ == "__main__":
         output_path=args.output_path,
         gcs_bucket=args.gcs_bucket,
         output_format=args.output_format,
+        force_add_bos=args.force_add_bos,
     )
